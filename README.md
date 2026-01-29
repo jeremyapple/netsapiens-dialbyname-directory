@@ -336,7 +336,8 @@ https://your-server.com/directory.php?site=HQ&mode=both&language=en-US&voice=fem
 └─────────────────┘
 
 Press * at main prompt → Exit to auto attendant (or restart)
-Press * during search/results → Return to main directory prompt
+Press * during search/results page 1 → Return to main directory prompt
+Press * on results page 2+ → Go to previous page
 Press 0 at main prompt → Transfer to operator (if configured)
 Press 9 → Next page (if more results)
 ```
@@ -364,7 +365,8 @@ The * key behavior depends on where the caller is in the directory:
 |----------|----------------|
 | Main prompt (before searching) | Exit to auto attendant (if available) |
 | After entering digits | Return to main directory prompt |
-| Viewing search results | Return to main directory prompt |
+| Viewing results (page 1) | Return to main directory prompt |
+| Viewing results (page 2+) | Go to previous page |
 
 ### Operator Option
 
