@@ -67,8 +67,14 @@
  *   2. If AccountUser is a system-aa (auto attendant) → returns to that user
  *   3. Otherwise → restarts the directory
  * 
- * DURING SEARCH/RESULTS (after entering digits):
- *   * always returns to the main directory prompt
+ * DURING SEARCH (after entering digits but before results):
+ *   * returns to the main directory prompt
+ * 
+ * VIEWING RESULTS (page 1):
+ *   * returns to the main directory prompt
+ * 
+ * VIEWING RESULTS (page 2+):
+ *   * goes to the previous page
  * 
  * The script automatically detects if the call came from an auto attendant
  * by checking the AccountUser's service-code via API. No configuration needed!
@@ -1067,12 +1073,18 @@ class DialByNameHandler {
         }
         
         // Handle 0 key - transfer to operator if configured and at main prompt
-        if ($digits === '0' && !empty($this->operatorExtension)) {
-            $accumulatedDigits = $this->session->get('accumulated_digits', '');
-            // Only transfer to operator if at main prompt (no digits entered yet)
-            if (empty($accumulatedDigits) && $state !== 'selecting') {
-                debug_log("Dial-by-name: Transferring to operator: {$this->operatorExtension}");
-                return $this->transferToOperator();
+        if ($digits === '0') {
+            debug_log("Dial-by-name: 0 key pressed - operatorExtension='{$this->operatorExtension}', state='$state', accumulated='$accumulatedDigits'");
+            if (!empty($this->operatorExtension)) {
+                // Only transfer to operator if at main prompt (no digits entered yet)
+                if (empty($accumulatedDigits) && $state !== 'selecting') {
+                    debug_log("Dial-by-name: Transferring to operator: {$this->operatorExtension}");
+                    return $this->transferToOperator();
+                } else {
+                    debug_log("Dial-by-name: 0 key ignored - not at main prompt");
+                }
+            } else {
+                debug_log("Dial-by-name: 0 key ignored - no operator extension configured");
             }
         }
         
@@ -1096,20 +1108,42 @@ class DialByNameHandler {
     
     /**
      * Handle star key press - behavior depends on where user is in the flow
+     * - Viewing results on page 2+: go to previous page
+     * - Viewing results on page 1: return to main directory prompt
      * - At main prompt (no digits entered): exit to auto attendant or restart
-     * - After entering digits or viewing results: return to main directory prompt
      */
     private function handleStar(string $currentState): string {
         $accumulatedDigits = $this->session->get('accumulated_digits', '');
-        $hasSearched = !empty($accumulatedDigits) || $currentState === 'selecting';
+        $currentPage = $this->session->get('current_page', 0);
         
-        // If user has started a search or is viewing results, go back to main directory
-        if ($hasSearched) {
-            debug_log("Dial-by-name: Star pressed after search - returning to main directory");
+        // If viewing results (selecting state), handle pagination
+        if ($currentState === 'selecting') {
+            if ($currentPage > 0) {
+                // Go to previous page
+                $allMatches = $this->session->get('all_matches', []);
+                $prevPage = $currentPage - 1;
+                debug_log("Dial-by-name: Star pressed on page " . ($currentPage + 1) . " - going back to page " . ($prevPage + 1));
+                return $this->presentMenu($allMatches, $prevPage);
+            } else {
+                // On first page of results - go back to main directory
+                debug_log("Dial-by-name: Star pressed on first page of results - returning to main directory");
+                $this->session->set('state', 'initial');
+                $this->session->set('accumulated_digits', '');
+                $this->session->set('current_matches', []);
+                $this->session->set('all_matches', []);
+                $this->session->set('current_page', 0);
+                return $this->promptForName();
+            }
+        }
+        
+        // If user has entered search digits but not yet viewing results
+        if (!empty($accumulatedDigits)) {
+            debug_log("Dial-by-name: Star pressed during search - returning to main directory");
             $this->session->set('state', 'initial');
             $this->session->set('accumulated_digits', '');
             $this->session->set('current_matches', []);
             $this->session->set('all_matches', []);
+            $this->session->set('current_page', 0);
             return $this->promptForName();
         }
         
@@ -1375,9 +1409,14 @@ class DialByNameHandler {
             $prompt .= " 9 for $remaining more options.";
         }
         
-        // Add repeat and exit options
-        // During results view, * always goes back to main directory prompt (not AA)
-        $prompt .= " 0 to repeat. Star to start over.";
+        // Add repeat and navigation options
+        // Star behavior depends on page: page 1 goes to main menu, page 2+ goes back
+        $prompt .= " 0 to repeat.";
+        if ($page > 0) {
+            $prompt .= " Star for previous page.";
+        } else {
+            $prompt .= " Star to start over.";
+        }
         
         // Add page indicator if paginated
         if ($totalPages > 1) {
@@ -1504,6 +1543,7 @@ $exitAction = $request['exit_action'] ?? 'forward';
 
 // Operator extension - URL param overrides config
 $operatorExtension = $request['operator'] ?? OPERATOR_EXTENSION;
+debug_log("Dial-by-name: Operator config - URL param='" . ($request['operator'] ?? 'not set') . "', config='" . OPERATOR_EXTENSION . "', using='$operatorExtension'");
 
 // Forward behavior - ByCaller attribute
 // Auto-detect based on ANI/DNIS:
@@ -1588,7 +1628,8 @@ if ($maxDigits !== DEFAULT_MAX_DIGITS) $queryParams['maxdigits'] = $maxDigits;
 if ($maxResults !== DEFAULT_MAX_RESULTS) $queryParams['maxresults'] = $maxResults;
 if ($language !== DEFAULT_LANGUAGE) $queryParams['language'] = $language;
 if ($voice !== DEFAULT_VOICE) $queryParams['voice'] = $voice;
-if ($operatorExtension !== OPERATOR_EXTENSION) $queryParams['operator'] = $operatorExtension;
+// Always preserve operator if set (important for callback URLs)
+if (!empty($operatorExtension)) $queryParams['operator'] = $operatorExtension;
 if (!empty($exitUrl)) $queryParams['exit_url'] = $exitUrl;
 if ($exitAction !== 'forward') $queryParams['exit_action'] = $exitAction;
 // Note: bycaller is auto-detected per request from NmsAni/NmsDnis, not preserved in URL
@@ -1596,6 +1637,8 @@ if ($exitAction !== 'forward') $queryParams['exit_action'] = $exitAction;
 if (!empty($queryParams)) {
     $selfUrl .= '?' . http_build_query($queryParams);
 }
+
+debug_log("Dial-by-name: selfUrl='$selfUrl'");
 
 if (empty($domain)) {
     WebResponderXML::setVoiceConfig($voiceConfig);
