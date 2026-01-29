@@ -1,0 +1,137 @@
+; =============================================================================
+; NetSapiens Dial-By-Name Directory Configuration
+; =============================================================================
+;
+; MULTI-SERVER SUPPORT
+; --------------------
+; This file can contain multiple configuration sections for different servers.
+; Select which section to use via URL parameter: ?config=sectionname
+;
+; Example URLs:
+;   directory.php                    → uses [production] (default)
+;   directory.php?config=server2     → uses [server2]
+;   directory.php?config=spanish     → uses [spanish]
+;
+; Each section is independent - settings don't inherit from other sections.
+; =============================================================================
+
+[production]
+; NetSapiens API Settings
+SERVER = api.netsapiens.com
+API_KEY = your_api_key_here
+
+; Cache Settings
+CACHE_ENABLED = true
+CACHE_DIR = /var/cache/dial_by_name
+CACHE_TTL = 300
+; Purge expired files: 1 in X chance per request (0 = disabled, use cron instead)
+; Recommend: Set to 0 and use cache_cleanup.php via cron
+CACHE_PURGE_CHANCE = 0
+
+; =============================================================================
+; Debug/Logging Settings
+; =============================================================================
+; Set to true to enable detailed logging, false for production
+DEBUG_MODE = false
+
+; =============================================================================
+; API Settings
+; =============================================================================
+; Max users per API request (1-1000, default 1000)
+; The API will automatically paginate for domains with more users
+API_PAGE_LIMIT = 1000
+
+; =============================================================================
+; Voice/Language Settings
+; =============================================================================
+; These can be overridden via URL parameters: ?language=es-ES&voice=male
+
+; BCP-47 language code for Text-to-Speech
+; Common options: en-US, en-GB, es-ES, es-MX, fr-FR, fr-CA, de-DE, pt-BR, it-IT
+DEFAULT_LANGUAGE = en-US
+
+; Voice for TTS - can be 'male', 'female', or a specific voice ID
+; Voice IDs depend on your TTS provider (e.g., Deepgram, Google, etc.)
+; Examples: male, female, en-US-Wavenet-A, en-US-Wavenet-D
+DEFAULT_VOICE = female
+
+; =============================================================================
+; Directory Behavior Settings
+; =============================================================================
+; These can be overridden via URL parameters: ?maxdigits=3&maxresults=5
+
+; Maximum digits to gather for name search (2-10)
+; Lower = faster but less precise, Higher = more precise but slower
+DEFAULT_MAX_DIGITS = 4
+
+; Maximum results to show per page (1-9)
+; Results are paginated with "Press 9 for more" if there are more matches
+DEFAULT_MAX_RESULTS = 8
+
+; =============================================================================
+; Operator Settings
+; =============================================================================
+; Extension to transfer to when caller presses 0 at the main prompt
+; Leave empty to disable operator option
+; Example: OPERATOR_EXTENSION = 0 (transfers to extension 0)
+; Example: OPERATOR_EXTENSION = 100 (transfers to extension 100)
+OPERATOR_EXTENSION = 
+
+; =============================================================================
+; Exit Behavior Settings
+; =============================================================================
+; What happens when user presses * (star) to exit
+;
+; AUTO-RETURN FEATURE:
+; - Script checks if AccountUser is a system auto attendant (service-code = system-aa)
+; - If yes, pressing * returns the caller to that auto attendant
+; - No configuration needed for this to work!
+;
+; Only set EXIT_URL if you want to override the auto-return behavior:
+EXIT_URL = 
+
+; Can also be overridden per-request via URL: ?exit_url=https://...
+
+; =============================================================================
+; ADDITIONAL SERVER EXAMPLES
+; =============================================================================
+; Add more sections below for additional NetSapiens servers.
+; Access via: directory.php?config=sectionname
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; Example: Second Production Server
+; Usage: directory.php?config=server2
+; -----------------------------------------------------------------------------
+[server2]
+SERVER = api.server2.netsapiens.com
+API_KEY = your_server2_api_key
+CACHE_ENABLED = true
+CACHE_DIR = /var/cache/dial_by_name_server2
+CACHE_TTL = 300
+CACHE_PURGE_CHANCE = 0
+DEBUG_MODE = false
+API_PAGE_LIMIT = 1000
+DEFAULT_LANGUAGE = en-US
+DEFAULT_VOICE = female
+OPERATOR_EXTENSION = 
+EXIT_URL = 
+
+; -----------------------------------------------------------------------------
+; Example: Spanish Language Server
+; Usage: directory.php?config=spanish
+; -----------------------------------------------------------------------------
+
+[spanish]
+SERVER = api.netsapiens.com
+API_KEY = your_api_key_here
+CACHE_ENABLED = true
+CACHE_DIR = /var/cache/dial_by_name_spanish
+CACHE_TTL = 300
+CACHE_PURGE_CHANCE = 0
+DEBUG_MODE = false
+API_PAGE_LIMIT = 1000
+DEFAULT_LANGUAGE = es-ES
+DEFAULT_VOICE = male
+OPERATOR_EXTENSION = 
+EXIT_URL = 
