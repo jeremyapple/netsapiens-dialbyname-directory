@@ -23,7 +23,7 @@ A JavaScript extension that adds **Web Responder** and **Custom Directory** opti
 
 ### 1. Host the JavaScript File
 
-Upload `netsapiens-aa-extension-v3.js` to a web server accessible by your portal. For example:
+Upload `aa-webresponder.js` to a web server accessible by your portal. For example:
 - `https://your-server.com/js/aa-webresponder.js`
 
 ### 2. Add to Portal via PORTAL_EXTRA_JS
